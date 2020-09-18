@@ -3,7 +3,7 @@ void RecoTreeMaker()
 {
 
   // Set up output tree
-  TFile tree_file("wbls3pct_reco.root", "recreate");
+  TFile tree_file("gd_water_reco.root", "recreate");
   TTree *tree = new TTree("tree", "");
 
   // Define branch variable
@@ -11,9 +11,10 @@ void RecoTreeMaker()
   double mc_x, mc_y, mc_z;
   double reco_x, reco_y, reco_z;
   double mc_time, mc_energy;
-  double pmt_hits, inner_hits, veto_hits;
-  double reco_pe, reco_time, n_triggers;
-  double n9;
+  double inner_hits, veto_hits;
+  double reco_pe, reco_time;
+  double n9, good_pos, closest_pmt;
+  double nevents;
 
   // Define branches
   tree->Branch("int_name", &int_name);  
@@ -25,16 +26,17 @@ void RecoTreeMaker()
   tree->Branch("reco_z", &reco_z);  
   tree->Branch("mc_energy", &mc_energy);  
   tree->Branch("mc_time", &mc_time);  
-  tree->Branch("pmt_hits", &pmt_hits);  
   tree->Branch("inner_hits", &inner_hits);  
   tree->Branch("veto_hits", &veto_hits);  
   tree->Branch("reco_pe", &reco_pe);  
   tree->Branch("reco_time", &reco_time);  
-  tree->Branch("n_triggers", &n_triggers);  
   tree->Branch("n9", &n9);  
+  tree->Branch("good_pos", &good_pos);  
+  tree->Branch("closest_pmt", &closest_pmt);  
+  tree->Branch("nevents", &nevents);  
 
   // List of all directories to include
-  std::vector<TString> dirs = {
+  std::vector<TString> files = {
     "IBDPositronHeyshamSig_LIQUID_ibd_p_hs", 
     "IBDPositronHeyshamBkg_LIQUID_ibd_p_hb",
     "208Tl_LIQUID_CHAIN_232Th_NA", 
@@ -63,84 +65,72 @@ void RecoTreeMaker()
     "n17_LIQUID_A_Z"};
 
   // Loop over the input directories
-  for(int f = 0; f < dirs.size(); f++){
+  for(int f = 0; f < files.size(); f++){
 
-    int_name = dirs[f];
+    int_name = files[f];
     // Parent directory
-    TString directory = "/p/gpfs1/adg/path_a/wbls_3pct/production_06232020/bonsai_root_files_detectorMedia_wbls_3pct_WM_0420_lightSim/";
-    TString dirname = directory+"Watchman_"+dirs[f]+"/";
-    // FIXME If any of the files are in a different parent directory...
-    if(f <= 1){
-      directory = "/usr/WS2/brooks50/temp/bonsai_root_files/";
-      dirname = directory+"Watchman+"+dirs[f]+"/";
+    TString directory = "/usr/WS2/brooks50/heysham_analysis/gd_water/bonsai_root_files_default/";
+    TString fname = "merged_Watchman_"+files[f]+".root";
+    std::cout<<fname<<"\n";
+
+    // Get PMT info from the file
+    TFile b_file(directory+fname); //path to your rat-pac files
+
+    // Get the number of events
+    TTreeReader sumreader("runSummary", &b_file);
+    TTreeReaderValue<int> nEvents(sumreader, "nEvents");
+    nevents = 0;
+    while(sumreader.Next()){
+      nevents += *nEvents;
     }
-    
-    std::cout<<dirname<<"\n";
 
-    // Get all of the files in the directory
-    TString fname; 
-    TSystemDirectory dir(dirname, dirname); 
-    TList *files = dir.GetListOfFiles(); 
-    if (!files) continue;
+    // Set up a TTreeReader to access the tree information
+    TTreeReader reader("data", &b_file);
 
-    // Loop over the files
-    TSystemFile *file; 
-    TIter next(files); 
-    while ((file=(TSystemFile*)next())) { 
-      fname = file->GetName(); 
-      std::cout<<fname<<"\n";
-      // Check it's a root file
-      if (file->IsDirectory() || !fname.EndsWith(".root")) continue;
-      // FIXME skip any broken files
-      if (fname=="run1594184246894525532.root") continue;
+    TTreeReaderValue<double> x(reader, "x");
+    TTreeReaderValue<double> y(reader, "y");
+    TTreeReaderValue<double> z(reader, "z");
+    TTreeReaderValue<double> t(reader, "t");
+    TTreeReaderValue<double> mcx(reader, "mcx");
+    TTreeReaderValue<double> mcy(reader, "mcy");
+    TTreeReaderValue<double> mcz(reader, "mcz");
+    TTreeReaderValue<double> mcenergy(reader, "mc_energy");
+    TTreeReaderValue<double> mct(reader, "mct");
+    TTreeReaderValue<double> reco_n9(reader, "n9");
+    TTreeReaderValue<double> pe(reader, "pe");
+    TTreeReaderValue<int> subid(reader, "subid");
+    TTreeReaderValue<int> inner_hit(reader, "inner_hit");
+    TTreeReaderValue<int> veto_hit(reader, "veto_hit");
+    TTreeReaderValue<double> goodpos(reader, "good_pos");
+    TTreeReaderValue<double> closestPMT(reader, "closestPMT");
 
-      // Get PMT info from the file
-      TFile b_file(dirname+fname); //path to your rat-pac files
+    // Loop through the events
+    while(reader.Next()){
 
-      // Set up a TTreeReader to access the tree information
-      TTreeReader reader("data", &b_file);
+      // Only look at the first triggered event (skip retriggers)
+      if(*subid != 0) continue;
+      // Fill the tree
+      mc_x = *mcx; 
+      mc_y = *mcy;
+      mc_z = *mcz;
+      reco_x = *x; 
+      reco_y = *y;
+      reco_z = *z;
+      mc_time = *mct;
+      mc_energy = *mcenergy;
+      n9 = *reco_n9;
+      inner_hits = *inner_hit;
+      veto_hits = *veto_hit;
+      reco_pe = *pe;
+      reco_time = *t;
+      good_pos = *goodpos;
+      closest_pmt = *closestPMT;
 
-      TTreeReaderValue<double> x(reader, "x");
-      TTreeReaderValue<double> y(reader, "y");
-      TTreeReaderValue<double> z(reader, "z");
-      TTreeReaderValue<double> t(reader, "t");
-      TTreeReaderValue<double> mcx(reader, "mcx");
-      TTreeReaderValue<double> mcy(reader, "mcy");
-      TTreeReaderValue<double> mcz(reader, "mcz");
-      TTreeReaderValue<double> mcenergy(reader, "mc_energy");
-      TTreeReaderValue<double> mct(reader, "mct");
-      TTreeReaderValue<double> reco_n9(reader, "n9");
-      TTreeReaderValue<double> pe(reader, "pe");
-      TTreeReaderValue<int> subid(reader, "subid");
-      TTreeReaderValue<int> inner_hit(reader, "inner_hit");
-      TTreeReaderValue<int> veto_hit(reader, "veto_hit");
-
-      // Loop through the events
-      while(reader.Next()){
-
-        // Only look at the first triggered event (skip retriggers)
-        if(*subid != 0) continue;
-        // Fill the tree
-        mc_x = *mcx; 
-        mc_y = *mcy;
-        mc_z = *mcz;
-        reco_x = *x; 
-        reco_y = *y;
-        reco_z = *z;
-        mc_time = *mct;
-        mc_energy = *mcenergy;
-        n9 = *reco_n9;
-        pmt_hits = *inner_hit + *veto_hit;
-        inner_hits = *inner_hit;
-        veto_hits = *veto_hit;
-        reco_pe = *pe;
-        reco_time = *t;
-
-        tree->Fill();
-
-      }
+      tree->Fill();
 
     }
+
+    std::cout<<"Number of events = "<<nevents<<"\n";
 
   }
 
