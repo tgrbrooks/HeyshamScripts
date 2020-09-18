@@ -127,7 +127,7 @@ def plot_2d(singles, wall_key, energy_key, minmax, bins):
                    weights=weights,
                    range=minmax,
                    vmin=0,
-                   vmax=0.4,
+                   vmax=0.25,
                    bins=[bins,bins])
         plt.xlabel(singles[key].labels[wall_key])
         plt.ylabel(singles[key].labels[energy_key])
@@ -157,4 +157,4 @@ for key in singles:
 
 # Make 2D efficiency plots
 plot_2d(singles, 'dwall', 'mc_energy', [[0.5, 3.5], [0, 4]], 40)
-plot_2d(singles, 'closest_pmt', 'n9', [[0.5, 3.5], [5, 55]], 40)
+plot_2d(singles, 'closest_pmt', 'n9', [[0.5, 3.5], [5, 30]], 40)
